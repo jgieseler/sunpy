@@ -86,13 +86,13 @@ def read_cdf(fname, **kwargs):
 
             data = cdf.varget(var_key)
 
-            # Set fillval values to NaN
-            # It would be nice to properley mask these values to work with
-            # non-floating point (ie. int) dtypes, but this is not possible with pandas
-            if np.issubdtype(data.dtype, np.floating):
+            # Set fillval values to NaN for floating point or integer only
+            if np.issubdtype(data.dtype, np.floating) or np.issubdtype(data.dtype, np.integer):
                 if 'FILLVAL' in attrs:
+                    # Convert integer dtype to pandas.arrays.IntegerArray that supports NaN
+                    if np.issubdtype(data.dtype, np.integer):
+                        data = pd.array(data, dtype=pd.Int64Dtype())
                     data[data == attrs['FILLVAL']] = np.nan
-
 
             # Get units
             if 'UNITS' in attrs:
