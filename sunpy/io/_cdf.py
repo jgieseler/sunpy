@@ -86,14 +86,6 @@ def read_cdf(fname, **kwargs):
 
             data = cdf.varget(var_key)
 
-            # Set fillval values to NaN for floating point or integer only
-            if np.issubdtype(data.dtype, np.floating) or np.issubdtype(data.dtype, np.integer):
-                if 'FILLVAL' in attrs:
-                    # Convert integer dtype to pandas.arrays.IntegerArray that supports NaN
-                    if np.issubdtype(data.dtype, np.integer):
-                        data = pd.array(data, dtype=pd.Int64Dtype())
-                    data[data == attrs['FILLVAL']] = np.nan
-
             # Get units
             if 'UNITS' in attrs:
                 unit_str = attrs['UNITS']
@@ -117,14 +109,28 @@ def read_cdf(fname, **kwargs):
                 # Skip data with dimensions >= 3 and give user warning
                 warn_user(f'The variable "{var_key}" has been skipped because it has more than 2 dimensions, which is unsupported.')
             elif data.ndim == 2:
+                var_key_list = []
                 # Multiple columns, give each column a unique label
                 for i, col in enumerate(data.T):
                     df_dict[var_key + f'_{i}'] = col
                     units[var_key + f'_{i}'] = unit
+                    var_key_list.append(var_key + f'_{i}')
             else:
                 # Single column
                 df_dict[var_key] = data
                 units[var_key] = unit
+                var_key_list = [var_key]
+            
+            # The following is applied to 'df_dict[var_key]' instead of 'data' some lines above bc. pd.array() can only take 1D arrays
+            # Set fillval values to NaN for floating point or integer only
+            if np.issubdtype(data.dtype, np.floating) or np.issubdtype(data.dtype, np.integer):
+                if 'FILLVAL' in attrs:
+                    for key in var_key_list:
+                        # Convert integer dtype to pandas.arrays.IntegerArray that supports NaN
+                        if np.issubdtype(df_dict[key].dtype, np.integer):
+                            df_dict[key] = pd.array(df_dict[key], dtype=pd.Int64Dtype())
+                        df_dict[key][df_dict[key] == attrs['FILLVAL']] = np.nan 
+
         df = pd.DataFrame(df_dict, index=pd.DatetimeIndex(name=index_key, data=index))
         all_ts.append(GenericTimeSeries(data=df, units=units, meta=meta))
 
